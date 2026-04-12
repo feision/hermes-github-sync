@@ -1,56 +1,41 @@
-# Hermes 部署与自动化推送故障排除指南
+# Hermes 自动化部署与技能管理指南
 
-本教程详细记录了在 Hermes Agent 多实例环境中，自动化部署与 Git 远程推送时遇到的核心坑点及解决方案。
+本指南旨在帮助开发者快速配置 Hermes Agent 的自动化部署工作流，并提供针对常见环境挑战的解决方案。
 
-## 1. 认证机制的“坑”
-### 问题：`401 Bad credentials` 与 `Password authentication not supported`
-在 HTTPS 模式下，GitHub 已不再支持直接使用密码认证。如果使用 Token 且配置不当，Git 会报错“Password authentication is not supported”。
+## 1. 核心技能：GitHub 自动化部署 (github-deploy-custom)
+本技能封装了标准 Git CLI 工作流，通过在 URL 中嵌入 Token 实现自动化推送，避免了凭据缓存带来的认证冲突。
 
-### 解决方案：
-- **API 验证**：使用 `curl -H "Authorization: token $GITHUB_TOKEN" https://api.github.com/user` 验证 Token 权限是否包含 `repo` 作用域。
-- **强制嵌入凭据**：为了避免系统 `credential.helper` 缓存旧凭据或配置错误，在自动化脚本中，直接将 Token 嵌入远程仓库 URL 中：
-  `git remote add origin https://USERNAME:TOKEN@github.com/OWNER/REPO.git`
+### 部署步骤
+1. **初始化仓库**：
+   ```bash
+   git init
+   git branch -m main
+   ```
+2. **配置远程仓库并推送**：
+   ```bash
+   git remote remove origin
+   git remote add origin https://USERNAME:TOKEN@github.com/OWNER/REPO.git
+   git add .
+   git commit -m "部署更新"
+   git push -u origin main
+   ```
 
-## 2. 远程推送的“坑”
-### 问题：`remote: Repository not found` 或 `fatal: repository not found`
-即使仓库存在，如果 URL 拼写错误或 Token 无权限，Git 也会返回此错误。
+## 2. 常见挑战与解决方案
+在自动化部署过程中，我们总结了以下环境配置经验，以确保流程的鲁棒性。
 
-### 解决方案：
-- **清理旧配置**：在添加新的远程地址前，务必执行 `git remote remove origin`，防止旧的（错误的）配置残留。
-- **分支名标准化**：GitHub 现默认分支为 `main`，而 `git init` 默认可能创建 `master`。
-  - 修复命令：`git branch -m main`。
+### 身份认证优化
+- **问题**：HTTPS 模式下使用 Token 认证失败。
+- **优化**：在自动化脚本中，推荐使用 `https://USERNAME:TOKEN@github.com/...` 格式，直接嵌入 Token 绕过系统凭据缓存的干扰。
 
-## 3. 冲突与强制同步的“坑”
-### 问题：`Updates were rejected because the remote contains work that you do not have locally`
-当远程仓库已有提交（例如你在网页端创建了仓库，且仓库已包含初始化文件），本地无法直接推送。
+### 远程仓库管理
+- **问题**：推送时出现 `Repository not found` 或 `remote origin already exists`。
+- **优化**：在关联远程仓库前，先执行 `git remote remove origin` 清理旧配置。
 
-### 解决方案：
-- **强制拉取同步**：
-  ```bash
-  git fetch origin
-  git reset --hard origin/main
-  ```
-  *注意：此操作会覆盖本地未提交的改动，请确保已备份重要文件。*
+### 分支同步规范
+- **问题**：本地分支与远程分支不匹配（如 `master` vs `main`）。
+- **优化**：统一执行 `git branch -m main` 确保分支名称规范化。
 
-## 4. 自动化脚本的“坑”
-### 问题：脚本执行超时或权限不足
-在多用户/多实例环境下，备份脚本可能因为权限不足或数据量过大导致超时。
+### 备份策略
+- **策略**：使用 `rsync` 排除缓存（如 `audio_cache`、`cache`）以精简备份体积，仅保留关键的 `config.yaml`、`memories/` 和 `skills/`。
 
-### 解决方案：
-- **精简备份**：使用 `rsync` 排除 `audio_cache`、`cache`、`cron/output` 等非关键缓存目录。
-- **权限管理**：涉及 `/root/.hermes` 的备份必须使用 `sudo`。
-- **超时设置**：在脚本调用中增加 `timeout` 参数（例如 `timeout=300`）。
-
-## 5. 总结：自动化推送最佳实践
-1. **不要依赖系统凭据缓存**：在自动化环境中，使用 `https://USER:TOKEN@github.com/...` 格式。
-2. **幂等性设计**：脚本中先清理再配置（如 `git remote remove origin`）。
-3. **标准化分支**：统一使用 `main` 分支。
-EOF
-
-git add README.md
-git commit -m "docs: update detailed deployment and troubleshooting guide"
-git push -u origin main
-
-## 技能库备份
-本仓库同步了 `github-deploy-custom` 技能的最新定义，以便在重装系统后快速恢复部署工作流。
-- 技能定义文件: `skills/github-deploy-custom.md`
+---
