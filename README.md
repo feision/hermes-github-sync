@@ -50,3 +50,7 @@ EOF
 git add README.md
 git commit -m "docs: update detailed deployment and troubleshooting guide"
 git push -u origin main
+
+## 技能库备份
+本仓库同步了 `github-deploy-custom` 技能的最新定义，以便在重装系统后快速恢复部署工作流。
+- 技能定义文件: `skills/github-deploy-custom.md`
