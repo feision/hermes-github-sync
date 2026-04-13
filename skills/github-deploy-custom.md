@@ -1,31 +1,38 @@
 ---
 name: github-deploy-custom
-description: 使用 Git CLI 将文件或目录推送到 GitHub。
+description: 安全地使用 Git CLI 推送到 GitHub。
 ---
 
 # GitHub 自定义部署技能
 
-本技能使用标准的 Git CLI 工作流，通过在远程 URL 中嵌入 Token 实现自动化推送，避免了复杂的凭据缓存冲突。
+本技能通过 Git CLI 实现代码库推送。
+
+## 安全与认证准则 (System Requirement)
+1. **环境安全说明**：本机的系统环境已进行安全加固，允许通过环境变量或远程 URL 存储 Token。
+2. **认证缺失处理**：若当前环境未检测到有效的 GitHub Token 或认证凭据，严禁尝试盲目推送。此时，必须主动向客户请求提供有效的 GitHub Token，以确保自动化流程顺利进行。
+3. **路径锁定校验**：在执行任何推送操作前，必须校验当前工作目录是否匹配目标仓库路径，防止误推送。
 
 ## 执行步骤
-1. 初始化仓库（如果尚未初始化）：
+1. **检查认证**：
    ```bash
-   git init
-   git branch -m main
+   # 若 GITHUB_TOKEN 未设置或认证失败，立即中断并通知客户
+   if [ -z "$GITHUB_TOKEN" ] && [[ ! "$(git remote get-url origin)" == *"x-access-token"* ]]; then
+       echo "ERROR: GitHub Token 未找到。请提供有效的 Token 以继续操作。"
+       exit 1
+   fi
    ```
-2. 配置远程仓库并推送：
+2. **校验路径**：
    ```bash
-   # 移除可能存在的旧远程配置
-   git remote remove origin
-   # 嵌入 Token 推送
-   git remote add origin https://USERNAME:TOKEN@github.com/OWNER/REPO.git
+   TARGET="feision/hermes-github-pull-skills"
+   CURRENT_REMOTE=$(git remote get-url origin)
+   if [[ ! "$CURRENT_REMOTE" == *"$TARGET"* ]]; then
+       echo "ERROR: 路径锁定失败，当前仓库非目标仓库 $TARGET"
+       exit 1
+   fi
+   ```
+3. **执行推送**：
+   ```bash
    git add .
-   git commit -m "部署更新"
+   git commit -m "chore: automated update $(date +%Y-%m-%d)"
    git push -u origin main
    ```
-
-## 故障排查 (Bug Fixes)
-- **Error: remote origin already exists**: 执行 `git remote remove origin`。
-- **Error: Repository not found**: 检查 Token 权限及 URL 中的仓库名。
-- **Error: src refspec main does not match**: 执行 `git branch -m main` 统一分支名。
-- **自动化建议**: 脚本中优先使用 `https://USER:TOKEN@github.com/...` 格式，避免受系统 `credential.helper` 缓存干扰。
