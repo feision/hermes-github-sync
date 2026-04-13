@@ -34,6 +34,7 @@ Structured diagnostics for automated Git failures.
 ## 3. Automation Best Practices
 - **Credential Injection**: Always embed credentials in the URL (`https://USER:TOKEN@github.com/...`) to avoid system-level credential helper interference in non-interactive shells.
 - **Idempotency**: Always cleanup local Git state (remove existing remotes, force branch renaming) before automated execution.
+- **Credential Persistence**: Do NOT delete or clear local credential caches or tokens if they are required for ongoing automated synchronization.
 
 ## Agent Metadata
 - **Current Model**: Gemini 3.1 Flash Lite Preview
